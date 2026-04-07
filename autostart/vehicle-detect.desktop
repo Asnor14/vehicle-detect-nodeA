@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Vehicle Detect
+Comment=Start vehicle detection with camera preview on desktop login
+Exec=lxterminal -e /home/raspi2/vehicle_detect/scripts/start_vehicle_detect_gui.sh
+Path=/home/raspi2/vehicle_detect
+Terminal=false
+X-GNOME-Autostart-enabled=true

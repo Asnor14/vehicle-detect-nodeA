@@ -1,98 +1,101 @@
-# Vehicle Detection and Counting using YOLO11
+# Vehicle Detect Node A
 
-**YOLOv11 (You Only Look Once)** is a state-of-the-art object detection model known for its speed and accuracy. It uses deep learning techniques to efficiently detect and track objects in images and videos, making it ideal for real-time applications like vehicle counting and traffic monitoring.
+Raspberry Pi blind-spot vehicle detection using two USB webcams, YOLO11, OpenCV, and a Flask web dashboard.
 
-This project implements **vehicle detection and counting** using **YOLOv11** and OpenCV. It processes a video file to track and count vehicles that cross a predefined red line, providing real-time visualizations of the detections and counts.
+## What This Project Does
 
-## 🚀 Features
+- Uses two cameras:
+  - `Approach` camera for early warning
+  - `Blindspot` camera for occupancy confirmation
+- Runs YOLO vehicle detection on the combined camera view
+- Keeps the relay ON using two-stage logic:
+  - approach detections reset the approach hold timer
+  - blindspot detections keep the relay ON until the blindspot clears
+- Serves a web dashboard with event history and millisecond timestamps
+- Supports Raspberry Pi desktop autostart so the preview opens after login
 
-- **Real-time vehicle detection and tracking** using YOLOv11.
-- **Counts vehicles** that cross a red line in the video.
-- **Bounding boxes and track IDs** displayed for each detected vehicle.
-- **Video output with overlayed tracking results** is saved.
+## Raspberry Pi Install
 
-## 🛠️ Tech Stack
-
-- **Python**
-- **YOLOv11** (Ultralytics)
-- **OpenCV** (Computer Vision Library)
-- **PyTorch** (for YOLO model)
-- **Numpy** (Array manipulations)
-
----
-
-## 📂 Project Setup
-
-### 1️⃣ Install Dependencies
-
-Ensure you have Python 3.8+ installed. Then, install the required libraries:
+### 1. Clone the repository
 
 ```bash
-pip install ultralytics opencv-python numpy torch torchvision torchaudio
+git clone https://github.com/Asnor14/vehicle-detect-nodeA.git
+cd vehicle-detect-nodeA
 ```
 
-### 2️⃣ Download YOLO11 Model
-
-Download the **YOLO11 weights** file (`yolo11l.pt`) from [this link](https://docs.ultralytics.com/models/yolo11/#performance-metrics) , here in this link scroll down till you reach the  "🔥Performance" section and click on YOLO11l model to download the weights. Once downloaded, place it in the project directory.
-
-
-
-### 3️⃣ Run the Project
+### 2. Run the Pi installer
 
 ```bash
+chmod +x install_on_rpi.sh
+./install_on_rpi.sh
+```
+
+This creates `.venv`, installs the Pi-friendly Python packages, and keeps OpenCV on the system package.
+
+### 3. Start manually
+
+```bash
+source .venv/bin/activate
 python main.py
 ```
 
-## 🎥 Input and Output
+## Camera Mapping
 
-- **Input:** Video file (`./test videos/test video_1.mp4`)
-- **Output:** Processed video saved as `output_video.mp4`
-- **Visualization:** Displays the tracking results with bounding boxes and counts
+The app is configured to use stable Raspberry Pi camera device paths instead of raw `/dev/video0` numbers:
 
-## 📜 Code Explanation
+- Approach camera:
+  `/dev/v4l/by-path/platform-fd500000.pcie-pci-0000:01:00.0-usb-0:1.1:1.0-video-index0`
+- Blindspot camera:
+  `/dev/v4l/by-path/platform-fd500000.pcie-pci-0000:01:00.0-usb-0:1.2:1.0-video-index0`
 
-1. **Loads YOLO model** using Ultralytics.
-2. **Reads input video** and extracts properties like width, height, and FPS.
-3. **Processes each frame** to detect and track vehicles (cars, bikes, etc.).
-4. **Draws a red line** and counts vehicles crossing it.
-5. **Saves processed video** with detected objects and counts.
-6. **Displays real-time output** while processing.
+Keep the cameras on the same USB ports for this mapping to stay correct.
 
-## 🎯 Customization
+## Web Dashboard
 
-- Change the input video path in `cap = cv2.VideoCapture('./test videos/test video_1.mp4')`.
-- Modify `line_y_red = 430` to change the red line position.
-- Adjust `classes=[1,2,3,5,6,7]` to track specific object categories:
-  - `1` - Bicycle 🚲
-  - `2` - Car 🚗
-  - `3` - Motorcycle 🏍️
-  - `5` - Bus 🚌
-  - `6` - Train 🚆
-  - `7` - Truck 🚛
+When the app is running, open:
 
-## 📝 Future Improvements
+```text
+http://<raspberry-pi-ip>:5000
+```
 
-- Add support for real-time webcam input.
-- Implement speed estimation of detected vehicles.
-- Export vehicle count data to a CSV file.
+The dashboard shows:
 
-## 🤝 Contributing
+- live approach/blindspot detection state
+- relay source and hold timers
+- current event and completed event history
+- millisecond timestamps in cards, table, copy output, and print/PDF view
 
-Feel free to fork the repository, improve the project, and create a pull request!
+## Autostart
 
-## 📜 License
+Desktop autostart is included for Raspberry Pi GUI login.
 
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+- Launcher:
+  `scripts/start_vehicle_detect_gui.sh`
+- Desktop entry template in repo:
+  `autostart/vehicle-detect.desktop`
 
-## 📷 Preview
+If you want the preview window to appear automatically after reboot, make sure Raspberry Pi desktop autologin is enabled.
 
-![alt text](Output_Sample_image.png)
+To install the desktop autostart entry on another Pi:
 
-## 📧 Contact
+```bash
+mkdir -p ~/.config/autostart
+cp autostart/vehicle-detect.desktop ~/.config/autostart/
+```
 
-For any queries, reach out to me at **sruja2401@gmail.com**.
+There is also a background `systemd` service template in `systemd/vehicle-detect.service` plus helper scripts in `scripts/`, but the GUI autostart is the preferred mode when you want the OpenCV preview window.
 
----
+## Main Files
 
-⚡ **Happy Coding!** 🚗🚦
+- `main.py` - two-camera detection, relay logic, preview window
+- `webapp.py` - Flask API and event logging
+- `hotspot.py` - optional hotspot control, disabled by default
+- `install_on_rpi.sh` - Raspberry Pi dependency setup
+- `scripts/` - autostart helpers
+- `systemd/` - optional background service unit
 
+## Notes
+
+- YOLO model weights (`*.pt`) are ignored in git and download automatically on first run.
+- `.venv` is intentionally not committed.
+- If you move either camera to a different USB port, update the camera paths in `main.py`.

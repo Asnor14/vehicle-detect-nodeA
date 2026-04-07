@@ -473,6 +473,7 @@
     <script>
         let eventsData = [];
         let currentEventData = null;
+        let statusData = null;
 
         const statusEl = document.getElementById('status');
         const totalEventsEl = document.getElementById('totalEvents');
@@ -499,7 +500,16 @@
         function formatDateTime(timestamp) {
             if (!timestamp) return '--';
             const date = new Date(timestamp);
-            return date.toLocaleString();
+            return new Intl.DateTimeFormat(undefined, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                fractionalSecondDigits: 3,
+                hour12: false
+            }).format(date);
         }
 
         function escapeHtml(value) {
@@ -511,10 +521,24 @@
                 .replaceAll("'", '&#039;');
         }
 
+        function formatSeconds(value) {
+            if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return '--';
+            return `${value.toFixed(1)}s`;
+        }
+
         function renderCurrentEvent() {
             if (!currentEventData) {
                 currentEventEl.innerHTML = `
-                    <div class="empty-state">
+                    <div class="session-card">
+                        <div class="session-grid">
+                            <div class="kv"><span class="kv-label">Approach Detect</span><span class="kv-value">${statusData?.approach_detected ? 'YES' : 'NO'}</span></div>
+                            <div class="kv"><span class="kv-label">Blindspot Detect</span><span class="kv-value">${statusData?.blindspot_detected ? 'YES' : 'NO'}</span></div>
+                            <div class="kv"><span class="kv-label">Relay Source</span><span class="kv-value">${escapeHtml(statusData?.relay_source ?? 'None')}</span></div>
+                            <div class="kv"><span class="kv-label">Approach Hold</span><span class="kv-value">${formatSeconds(statusData?.approach_timer_remaining)}</span></div>
+                            <div class="kv"><span class="kv-label">Blindspot Hold</span><span class="kv-value">${formatSeconds(statusData?.blindspot_clear_remaining)}</span></div>
+                        </div>
+                    </div>
+                    <div class="empty-state" style="margin-top: 12px;">
                         <p>Waiting for a detection event.</p>
                     </div>
                 `;
@@ -528,6 +552,11 @@
                         <div class="status-pill">${escapeHtml(currentEventData.status)}</div>
                     </div>
                     <div class="session-grid">
+                        <div class="kv"><span class="kv-label">Approach Detect</span><span class="kv-value">${statusData?.approach_detected ? 'YES' : 'NO'}</span></div>
+                        <div class="kv"><span class="kv-label">Blindspot Detect</span><span class="kv-value">${statusData?.blindspot_detected ? 'YES' : 'NO'}</span></div>
+                        <div class="kv"><span class="kv-label">Relay Source</span><span class="kv-value">${escapeHtml(statusData?.relay_source ?? 'None')}</span></div>
+                        <div class="kv"><span class="kv-label">Approach Hold</span><span class="kv-value">${formatSeconds(statusData?.approach_timer_remaining)}</span></div>
+                        <div class="kv"><span class="kv-label">Blindspot Hold</span><span class="kv-value">${formatSeconds(statusData?.blindspot_clear_remaining)}</span></div>
                         <div class="kv"><span class="kv-label">Detection Time</span><span class="kv-value">${escapeHtml(formatDateTime(currentEventData.detection_time))}</span></div>
                         <div class="kv"><span class="kv-label">Relay Signal</span><span class="kv-value">${escapeHtml(formatDateTime(currentEventData.relay_signal_time))}</span></div>
                         <div class="kv"><span class="kv-label">Relay Off</span><span class="kv-value">${escapeHtml(formatDateTime(currentEventData.relay_off_time))}</span></div>
@@ -634,12 +663,14 @@
             try {
                 const response = await fetch('/api/status');
                 const data = await response.json();
+                statusData = data;
 
                 statusEl.textContent = data.running ? 'Running' : 'Stopped';
                 btnStart.disabled = !!data.running;
                 btnStop.disabled = !data.running;
             } catch (error) {
                 statusEl.textContent = 'Offline';
+                statusData = null;
             }
         }
 

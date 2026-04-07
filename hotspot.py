@@ -17,6 +17,12 @@ def is_raspberry_pi():
     return sys.platform.startswith('linux') and os.path.exists('/sys/firmware/devicetree/base/model')
 
 
+def hotspot_feature_enabled():
+    """Return True when hotspot control is explicitly enabled."""
+    value = os.environ.get("VEHICLE_ENABLE_HOTSPOT", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 def enable_hotspot(ssid="VehicleDetector", password="detection123"):
     """Enable WiFi hotspot on Raspberry Pi.
     
@@ -29,6 +35,9 @@ def enable_hotspot(ssid="VehicleDetector", password="detection123"):
     """
     if not is_raspberry_pi():
         print("[INFO] Not on RPi - hotspot control skipped.")
+        return True
+    if not hotspot_feature_enabled():
+        print("[INFO] Hotspot disabled by config (set VEHICLE_ENABLE_HOTSPOT=1 to enable).")
         return True
     
     try:
@@ -73,6 +82,9 @@ def disable_hotspot():
     if not is_raspberry_pi():
         print("[INFO] Not on RPi - hotspot control skipped.")
         return True
+    if not hotspot_feature_enabled():
+        print("[INFO] Hotspot disabled by config; nothing to disable.")
+        return True
     
     try:
         # Bring down the hotspot connection if it exists. `nmcli device wifi hotspot off`
@@ -102,7 +114,7 @@ def get_hotspot_status():
     Returns:
         dict: {'active': bool, 'ssid': str or None}
     """
-    if not is_raspberry_pi():
+    if not is_raspberry_pi() or not hotspot_feature_enabled():
         return {'active': False, 'ssid': None}
     
     try:

@@ -1,0 +1,16 @@
+[Unit]
+Description=Vehicle Detection Blindspot Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=raspi2
+WorkingDirectory=/home/raspi2/vehicle_detect
+ExecStart=/home/raspi2/vehicle_detect/scripts/start_vehicle_detect.sh
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

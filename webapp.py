@@ -14,7 +14,12 @@ from collections import defaultdict
 
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
-from hotspot import enable_hotspot, disable_hotspot, get_hotspot_status
+from hotspot import (
+    disable_hotspot,
+    enable_hotspot,
+    get_hotspot_status,
+    hotspot_feature_enabled,
+)
 
 # ============================================================================
 # Event Management System (5-second debouncing)
@@ -150,6 +155,11 @@ app_state = {
     'running': False,
     'detection_enabled': False,
     'relay_enabled': True,
+    'approach_detected': False,
+    'blindspot_detected': False,
+    'relay_source': 'None',
+    'approach_timer_remaining': 0.0,
+    'blindspot_clear_remaining': 0.0,
 }
 state_lock = threading.Lock()
 
@@ -171,14 +181,18 @@ def start_detection():
         app_state['running'] = True
         app_state['detection_enabled'] = True
     
-    hotspot_ok = enable_hotspot()
+    hotspot_ok = enable_hotspot() if hotspot_feature_enabled() else True
     hotspot = get_hotspot_status()
+    message = 'Detection started on the current network.'
+    if hotspot_feature_enabled():
+        message = 'Detection started. Hotspot enabled if on RPi.'
     
     return jsonify({
         'status': 'started',
-        'message': 'Detection started. Hotspot enabled if on RPi.',
+        'message': message,
         'hotspot_enabled': hotspot_ok,
         'hotspot': hotspot,
+        'hotspot_configured': hotspot_feature_enabled(),
     }), 200
 
 
@@ -192,14 +206,18 @@ def stop_detection():
     # Finalize any pending event
     event_logger.on_relay_timeout()
     
-    hotspot_ok = disable_hotspot()
+    hotspot_ok = disable_hotspot() if hotspot_feature_enabled() else True
     hotspot = get_hotspot_status()
+    message = 'Detection stopped.'
+    if hotspot_feature_enabled():
+        message = 'Detection stopped. Hotspot disabled if on RPi.'
     
     return jsonify({
         'status': 'stopped',
-        'message': 'Detection stopped. Hotspot disabled if on RPi.',
+        'message': message,
         'hotspot_disabled': hotspot_ok,
         'hotspot': hotspot,
+        'hotspot_configured': hotspot_feature_enabled(),
     }), 200
 
 
@@ -227,6 +245,7 @@ def get_status():
     return jsonify({
         **status,
         'hotspot': get_hotspot_status(),
+        'hotspot_configured': hotspot_feature_enabled(),
         'current_event': current_event,
         'timestamp': datetime.now().isoformat()
     }), 200
@@ -275,11 +294,14 @@ def get_app_state():
         return app_state.copy()
 
 
-def set_app_state(running, detection_enabled):
+def set_app_state(running=None, detection_enabled=None, **extra_fields):
     """Set application state."""
     with state_lock:
-        app_state['running'] = running
-        app_state['detection_enabled'] = detection_enabled
+        if running is not None:
+            app_state['running'] = running
+        if detection_enabled is not None:
+            app_state['detection_enabled'] = detection_enabled
+        app_state.update(extra_fields)
 
 
 if __name__ == '__main__':
