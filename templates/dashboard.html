@@ -133,6 +133,22 @@
             cursor: pointer;
         }
 
+        a.button-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid var(--border);
+            background: #fff;
+            color: var(--text);
+            padding: 14px 12px;
+            min-height: 52px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            text-decoration: none;
+        }
+
         button.primary {
             background: #000;
             color: #fff;
@@ -339,7 +355,7 @@
             }
 
             .toolbar {
-                grid-template-columns: repeat(2, max-content);
+                grid-template-columns: repeat(4, max-content);
                 justify-content: end;
             }
 
@@ -420,6 +436,8 @@
                     <button class="secondary" id="btnClear">Clear Events</button>
                 </div>
                 <div class="toolbar">
+                    <a class="button-link" href="/detection-time">Detection time</a>
+                    <a class="button-link" href="/response-time">Response time</a>
                     <button class="secondary" id="btnCopy">Copy Table</button>
                     <button class="secondary" id="btnPdf">Print / Save PDF</button>
                 </div>

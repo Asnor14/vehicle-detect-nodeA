@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection Time Recorder</title>
+    <style>
+        :root {
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --surface-soft: #f8fafc;
+            --border: #111827;
+            --text: #111827;
+            --muted: #475569;
+            --accent: #0f766e;
+            --accent-strong: #115e59;
+            --warning: #92400e;
+            --shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+            --radius: 22px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            padding: 18px;
+            color: var(--text);
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background:
+                radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 30%),
+                linear-gradient(180deg, #f8fafc 0%, #e5e7eb 100%);
+        }
+
+        .shell {
+            max-width: 1180px;
+            margin: 0 auto;
+        }
+
+        .app {
+            overflow: hidden;
+            border: 2px solid var(--border);
+            border-radius: 30px;
+            background: var(--surface);
+            box-shadow: var(--shadow);
+        }
+
+        .hero,
+        .section,
+        .footer {
+            padding: 20px 18px;
+        }
+
+        .hero {
+            border-bottom: 2px solid var(--border);
+            background:
+                linear-gradient(135deg, #ffffff 0%, #dff6f3 100%);
+        }
+
+        .eyebrow {
+            display: inline-block;
+            margin-bottom: 12px;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            background: #fff;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 30px;
+            line-height: 1;
+            letter-spacing: -0.04em;
+        }
+
+        .hero p,
+        .panel-note,
+        .feedback,
+        .footer {
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .section {
+            border-bottom: 1px solid #d1d5db;
+        }
+
+        .section:last-of-type {
+            border-bottom: 0;
+        }
+
+        .status-grid,
+        .action-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .status-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .stat {
+            padding: 16px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--surface-soft);
+        }
+
+        .stat-label {
+            margin-bottom: 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .action-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        button,
+        a.button-link {
+            appearance: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 54px;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border);
+            border-radius: 16px;
+            background: #fff;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        button.primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        button.primary:disabled {
+            background: #99bdb9;
+            color: #effcf9;
+        }
+
+        button.secondary,
+        a.button-link {
+            background: var(--surface-soft);
+        }
+
+        button.warning {
+            background: #fff7ed;
+            color: var(--warning);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .panel-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .panel-heading h2 {
+            font-size: 18px;
+        }
+
+        .feedback {
+            min-height: 20px;
+            margin-top: 14px;
+            font-size: 13px;
+        }
+
+        .table-shell {
+            overflow-x: auto;
+            border: 1.5px solid var(--border);
+            border-radius: 22px;
+            background: #fff;
+        }
+
+        table {
+            width: 100%;
+            min-width: 920px;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #d1d5db;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        thead th {
+            background: #111827;
+            color: #fff;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        tbody tr.active-row {
+            background: #ecfeff;
+        }
+
+        tbody tr.complete-row {
+            background: #f8fafc;
+        }
+
+        .trial-cell {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .pill {
+            display: inline-flex;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .footer {
+            background: #f8fafc;
+            border-top: 1px solid #d1d5db;
+            font-size: 12px;
+        }
+
+        @media (min-width: 760px) {
+            body {
+                padding: 28px;
+            }
+
+            .hero,
+            .section,
+            .footer {
+                padding: 28px;
+            }
+
+            h1 {
+                font-size: 42px;
+            }
+
+            .status-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .action-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <main class="app">
+            <section class="hero">
+                <div class="eyebrow">Detection Time</div>
+                <h1>Approaching Camera Trial Recorder</h1>
+                <p>Use this page while detection is running to manually record 10 numbered trials. Each trial is saved in milliseconds.</p>
+            </section>
+
+            <section class="section">
+                <div class="status-grid">
+                    <div class="stat">
+                        <div class="stat-label">Active Row</div>
+                        <div class="stat-value" id="activeRow">1</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Active Trial</div>
+                        <div class="stat-value" id="activeTrial">Trial 1</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Elapsed Time</div>
+                        <div class="stat-value" id="elapsedTime">0.000 ms</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="action-grid">
+                    <button class="primary" id="btnStartTimer">Start</button>
+                    <button class="secondary" id="btnRecordTimer" disabled>Stop / Record</button>
+                    <button class="warning" id="btnResetRecorder">Reset Table</button>
+                    <a class="button-link" href="/">Back to Dashboard</a>
+                </div>
+                <div class="feedback" id="feedback"></div>
+            </section>
+
+            <section class="section">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Detection of Approaching Camera</h2>
+                        <div class="panel-note">Fill Trial 1, Trial 2, and Trial 3 for each number, then press Proceed.</div>
+                    </div>
+                </div>
+
+                <div class="table-shell">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>No.</th>
+                                <th>Trial 1</th>
+                                <th>Trial 2</th>
+                                <th>Trial 3</th>
+                                <th>Next Number</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trialTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <footer class="footer">
+                Manual recorder for approaching camera detection trials
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        const activeRowEl = document.getElementById('activeRow');
+        const activeTrialEl = document.getElementById('activeTrial');
+        const elapsedTimeEl = document.getElementById('elapsedTime');
+        const feedbackEl = document.getElementById('feedback');
+        const trialTableBodyEl = document.getElementById('trialTableBody');
+        const btnStartTimer = document.getElementById('btnStartTimer');
+        const btnRecordTimer = document.getElementById('btnRecordTimer');
+        const btnResetRecorder = document.getElementById('btnResetRecorder');
+
+        let recorderState = null;
+        let timerStart = null;
+        let timerTick = null;
+
+        function showFeedback(message) {
+            feedbackEl.textContent = message;
+            window.clearTimeout(showFeedback.timer);
+            showFeedback.timer = window.setTimeout(() => {
+                feedbackEl.textContent = '';
+            }, 3000);
+        }
+
+        function formatMs(value) {
+            if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
+            return `${value.toFixed(3)} ms`;
+        }
+
+        function formatTrialName(name) {
+            if (!name) return 'Completed';
+            return name.replace('_', ' ').replace(/\b\w/g, char => char.toUpperCase());
+        }
+
+        function currentElapsedMs() {
+            if (!timerStart) return 0;
+            return performance.now() - timerStart;
+        }
+
+        function updateElapsedDisplay() {
+            elapsedTimeEl.textContent = formatMs(currentElapsedMs());
+        }
+
+        function stopLocalTimer(resetValue = true) {
+            if (timerTick) {
+                window.clearInterval(timerTick);
+                timerTick = null;
+            }
+            timerStart = null;
+            btnStartTimer.disabled = recorderState?.completed ?? false;
+            btnRecordTimer.disabled = true;
+            if (resetValue) {
+                elapsedTimeEl.textContent = '0.000 ms';
+            }
+        }
+
+        function renderTable() {
+            if (!recorderState) {
+                trialTableBodyEl.innerHTML = '';
+                return;
+            }
+
+            trialTableBodyEl.innerHTML = recorderState.rows.map(row => {
+                const isActive = recorderState.current_row === row.number;
+                const isComplete = [row.trial_1_ms, row.trial_2_ms, row.trial_3_ms].every(value => value !== null);
+                const rowClass = isActive ? 'active-row' : (isComplete ? 'complete-row' : '');
+
+                return `
+                    <tr class="${rowClass}">
+                        <td><strong>${row.number}</strong></td>
+                        <td class="trial-cell">${formatMs(row.trial_1_ms)}</td>
+                        <td class="trial-cell">${formatMs(row.trial_2_ms)}</td>
+                        <td class="trial-cell">${formatMs(row.trial_3_ms)}</td>
+                        <td>
+                            <button
+                                class="secondary"
+                                data-row="${row.number}"
+                                ${!isActive || !isComplete || recorderState.completed ? 'disabled' : ''}
+                            >
+                                Proceed
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            activeRowEl.textContent = recorderState.current_row ?? 'Done';
+            activeTrialEl.textContent = formatTrialName(recorderState.current_trial);
+
+            if (recorderState.completed) {
+                stopLocalTimer();
+                btnStartTimer.disabled = true;
+                activeTrialEl.innerHTML = '<span class="pill">Completed</span>';
+            }
+        }
+
+        async function loadRecorder() {
+            const response = await fetch('/api/trial-recorder');
+            recorderState = await response.json();
+            renderTable();
+        }
+
+        async function recordElapsedTime(elapsedMs) {
+            const response = await fetch('/api/trial-recorder/record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ elapsed_ms: elapsedMs })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Unable to record trial.');
+            }
+
+            recorderState = data;
+            renderTable();
+            showFeedback(`Recorded row ${data.recorded_row}, ${formatTrialName(data.recorded_trial)} at ${formatMs(elapsedMs)}.`);
+        }
+
+        async function proceedRow() {
+            const response = await fetch('/api/trial-recorder/proceed', { method: 'POST' });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Unable to proceed to the next number.');
+            }
+
+            recorderState = data;
+            renderTable();
+            showFeedback('Moved to the next number.');
+        }
+
+        async function resetRecorder() {
+            const response = await fetch('/api/trial-recorder/reset', { method: 'POST' });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error('Unable to reset the recorder.');
+            }
+
+            recorderState = data;
+            stopLocalTimer();
+            renderTable();
+            showFeedback('Trial recorder reset.');
+        }
+
+        btnStartTimer.addEventListener('click', () => {
+            if (recorderState?.completed || timerStart) return;
+            timerStart = performance.now();
+            btnStartTimer.disabled = true;
+            btnRecordTimer.disabled = false;
+            updateElapsedDisplay();
+            timerTick = window.setInterval(updateElapsedDisplay, 16);
+            showFeedback(`Timer started for row ${recorderState.current_row}, ${formatTrialName(recorderState.current_trial)}.`);
+        });
+
+        btnRecordTimer.addEventListener('click', async () => {
+            if (!timerStart) return;
+
+            const elapsedMs = currentElapsedMs();
+            stopLocalTimer(false);
+
+            try {
+                await recordElapsedTime(elapsedMs);
+                elapsedTimeEl.textContent = formatMs(elapsedMs);
+                btnStartTimer.disabled = recorderState?.completed ?? false;
+            } catch (error) {
+                elapsedTimeEl.textContent = formatMs(elapsedMs);
+                showFeedback(error.message);
+            }
+        });
+
+        btnResetRecorder.addEventListener('click', async () => {
+            try {
+                await resetRecorder();
+            } catch (error) {
+                showFeedback(error.message);
+            }
+        });
+
+        trialTableBodyEl.addEventListener('click', async event => {
+            const button = event.target.closest('button[data-row]');
+            if (!button) return;
+
+            try {
+                await proceedRow();
+            } catch (error) {
+                showFeedback(error.message);
+            }
+        });
+
+        loadRecorder().catch(() => {
+            showFeedback('Unable to load the trial recorder.');
+        });
+    </script>
+</body>
+</html>

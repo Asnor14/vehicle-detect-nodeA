@@ -165,6 +165,102 @@ state_lock = threading.Lock()
 
 
 # ============================================================================
+# Detection Trial Recorder
+# ============================================================================
+
+TRIAL_LABELS = ["trial_1", "trial_2", "trial_3"]
+RESPONSE_SEQUENCE = [
+    'detection_trial_1',
+    'response_trial_1',
+    'detection_trial_2',
+    'response_trial_2',
+    'detection_trial_3',
+    'response_trial_3',
+]
+trial_lock = threading.Lock()
+trial_recorder = {
+    'rows': [
+        {
+            'number': number,
+            'trial_1_ms': None,
+            'trial_2_ms': None,
+            'trial_3_ms': None,
+        }
+        for number in range(1, 11)
+    ],
+    'current_row': 1,
+    'current_trial': 'trial_1',
+}
+response_trial_lock = threading.Lock()
+response_trial_recorder = {
+    'rows': [
+        {
+            'number': number,
+            'detection_trial_1_ms': None,
+            'detection_trial_2_ms': None,
+            'detection_trial_3_ms': None,
+            'response_trial_1_ms': None,
+            'response_trial_2_ms': None,
+            'response_trial_3_ms': None,
+        }
+        for number in range(1, 11)
+    ],
+    'current_row': 1,
+    'current_slot': 'detection_trial_1',
+}
+
+
+def _snapshot_trial_recorder():
+    """Build a serializable recorder snapshot. Caller manages locking."""
+    rows = [row.copy() for row in trial_recorder['rows']]
+    current_row = trial_recorder['current_row']
+    current_trial = trial_recorder['current_trial']
+
+    return {
+        'rows': rows,
+        'current_row': current_row,
+        'current_trial': current_trial,
+        'completed': current_row is None,
+    }
+
+
+def get_trial_recorder_state():
+    """Return a snapshot of the current manual trial recorder state."""
+    with trial_lock:
+        return _snapshot_trial_recorder()
+
+
+def _row_is_complete(row):
+    """Return True when all three trial slots are filled."""
+    return all(row[f'{trial}_ms'] is not None for trial in TRIAL_LABELS)
+
+
+def _snapshot_response_trial_recorder():
+    """Build a serializable response-time recorder snapshot."""
+    rows = [row.copy() for row in response_trial_recorder['rows']]
+    current_row = response_trial_recorder['current_row']
+    current_slot = response_trial_recorder['current_slot']
+
+    return {
+        'rows': rows,
+        'current_row': current_row,
+        'current_slot': current_slot,
+        'completed': current_row is None,
+    }
+
+
+def get_response_trial_recorder_state():
+    """Return a snapshot of the response-time recorder state."""
+    with response_trial_lock:
+        return _snapshot_response_trial_recorder()
+
+
+def _response_row_is_complete(row):
+    """Return True when all detection and response trials are filled."""
+    return all(row[f'{slot}_ms'] is not None for slot in RESPONSE_SEQUENCE)
+
+
+# ============================================================================
 # REST API Endpoints
 # ============================================================================
 
@@ -172,6 +268,18 @@ state_lock = threading.Lock()
 def index():
     """Serve the dashboard HTML."""
     return render_template('dashboard.html')
+
+
+@app.route('/detection-time')
+def detection_time():
+    """Serve the manual detection-time recorder page."""
+    return render_template('detection_time.html')
+
+
+@app.route('/response-time')
+def response_time():
+    """Serve the paired detection and relay response time recorder page."""
+    return render_template('response_time.html')
 
 
 @app.route('/api/start', methods=['POST'])
@@ -259,6 +367,191 @@ def clear_events():
         event_logger.current_event = None
     
     return jsonify({'status': 'cleared'}), 200
+
+
+@app.route('/api/trial-recorder', methods=['GET'])
+def get_trial_recorder():
+    """Get the current state of the manual detection-time recorder."""
+    return jsonify(get_trial_recorder_state()), 200
+
+
+@app.route('/api/trial-recorder/record', methods=['POST'])
+def record_trial_time():
+    """Record a completed manual trial time in milliseconds."""
+    payload = request.get_json(silent=True) or {}
+    elapsed_ms = payload.get('elapsed_ms')
+
+    if not isinstance(elapsed_ms, (int, float)) or elapsed_ms < 0:
+        return jsonify({'error': 'elapsed_ms must be a non-negative number.'}), 400
+
+    elapsed_ms = round(float(elapsed_ms), 3)
+
+    with trial_lock:
+        current_row = trial_recorder['current_row']
+        current_trial = trial_recorder['current_trial']
+
+        if current_row is None or current_trial is None:
+            return jsonify({'error': 'All trial rows are already complete.'}), 400
+
+        row = trial_recorder['rows'][current_row - 1]
+        key = f'{current_trial}_ms'
+        row[key] = elapsed_ms
+
+        next_trial = None
+        for trial in TRIAL_LABELS:
+            if row[f'{trial}_ms'] is None:
+                next_trial = trial
+                break
+
+        trial_recorder['current_trial'] = next_trial
+
+        state = _snapshot_trial_recorder()
+
+    return jsonify({
+        'status': 'recorded',
+        'recorded_row': current_row,
+        'recorded_trial': current_trial,
+        **state,
+    }), 200
+
+
+@app.route('/api/trial-recorder/proceed', methods=['POST'])
+def proceed_trial_row():
+    """Move the recorder to the next numbered row after three trials."""
+    with trial_lock:
+        current_row = trial_recorder['current_row']
+
+        if current_row is None:
+            return jsonify({'error': 'All trial rows are already complete.'}), 400
+
+        row = trial_recorder['rows'][current_row - 1]
+        if not _row_is_complete(row):
+            return jsonify({'error': 'Complete Trial 1, Trial 2, and Trial 3 first.'}), 400
+
+        if current_row >= len(trial_recorder['rows']):
+            trial_recorder['current_row'] = None
+            trial_recorder['current_trial'] = None
+        else:
+            trial_recorder['current_row'] = current_row + 1
+            trial_recorder['current_trial'] = 'trial_1'
+
+        state = _snapshot_trial_recorder()
+
+    return jsonify({
+        'status': 'proceeded',
+        **state,
+    }), 200
+
+
+@app.route('/api/trial-recorder/reset', methods=['POST'])
+def reset_trial_recorder():
+    """Reset all manual detection-time recorder rows."""
+    with trial_lock:
+        for row in trial_recorder['rows']:
+            row['trial_1_ms'] = None
+            row['trial_2_ms'] = None
+            row['trial_3_ms'] = None
+
+        trial_recorder['current_row'] = 1
+        trial_recorder['current_trial'] = 'trial_1'
+
+    return jsonify({
+        'status': 'reset',
+        **get_trial_recorder_state(),
+    }), 200
+
+
+@app.route('/api/response-recorder', methods=['GET'])
+def get_response_recorder():
+    """Get the current state of the response-time recorder."""
+    return jsonify(get_response_trial_recorder_state()), 200
+
+
+@app.route('/api/response-recorder/record', methods=['POST'])
+def record_response_trial_time():
+    """Record a detection-time or relay-response-time trial in milliseconds."""
+    payload = request.get_json(silent=True) or {}
+    elapsed_ms = payload.get('elapsed_ms')
+
+    if not isinstance(elapsed_ms, (int, float)) or elapsed_ms < 0:
+        return jsonify({'error': 'elapsed_ms must be a non-negative number.'}), 400
+
+    elapsed_ms = round(float(elapsed_ms), 3)
+
+    with response_trial_lock:
+        current_row = response_trial_recorder['current_row']
+        current_slot = response_trial_recorder['current_slot']
+
+        if current_row is None or current_slot is None:
+            return jsonify({'error': 'All response-time rows are already complete.'}), 400
+
+        row = response_trial_recorder['rows'][current_row - 1]
+        row[f'{current_slot}_ms'] = elapsed_ms
+
+        next_slot = None
+        for slot in RESPONSE_SEQUENCE:
+            if row[f'{slot}_ms'] is None:
+                next_slot = slot
+                break
+
+        response_trial_recorder['current_slot'] = next_slot
+        state = _snapshot_response_trial_recorder()
+
+    return jsonify({
+        'status': 'recorded',
+        'recorded_row': current_row,
+        'recorded_slot': current_slot,
+        **state,
+    }), 200
+
+
+@app.route('/api/response-recorder/proceed', methods=['POST'])
+def proceed_response_trial_row():
+    """Move the response-time recorder to the next numbered row."""
+    with response_trial_lock:
+        current_row = response_trial_recorder['current_row']
+
+        if current_row is None:
+            return jsonify({'error': 'All response-time rows are already complete.'}), 400
+
+        row = response_trial_recorder['rows'][current_row - 1]
+        if not _response_row_is_complete(row):
+            return jsonify({'error': 'Complete all detection and response trials first.'}), 400
+
+        if current_row >= len(response_trial_recorder['rows']):
+            response_trial_recorder['current_row'] = None
+            response_trial_recorder['current_slot'] = None
+        else:
+            response_trial_recorder['current_row'] = current_row + 1
+            response_trial_recorder['current_slot'] = 'detection_trial_1'
+
+        state = _snapshot_response_trial_recorder()
+
+    return jsonify({
+        'status': 'proceeded',
+        **state,
+    }), 200
+
+
+@app.route('/api/response-recorder/reset', methods=['POST'])
+def reset_response_trial_recorder():
+    """Reset all response-time rows."""
+    with response_trial_lock:
+        for row in response_trial_recorder['rows']:
+            row['detection_trial_1_ms'] = None
+            row['detection_trial_2_ms'] = None
+            row['detection_trial_3_ms'] = None
+            row['response_trial_1_ms'] = None
+            row['response_trial_2_ms'] = None
+            row['response_trial_3_ms'] = None
+
+        response_trial_recorder['current_row'] = 1
+        response_trial_recorder['current_slot'] = 'detection_trial_1'
+
+    return jsonify({
+        'status': 'reset',
+        **get_response_trial_recorder_state(),
+    }), 200
 
 
 # ============================================================================
