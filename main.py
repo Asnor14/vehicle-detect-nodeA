@@ -44,7 +44,8 @@ from webapp import (
     log_detection_event, 
     log_relay_signal,
     log_relay_timeout,
-    set_app_state
+    set_app_state,
+    set_detection_camera
 )
 from hotspot import enable_hotspot, disable_hotspot, hotspot_feature_enabled
 
@@ -465,6 +466,10 @@ def inference_worker(model):
 
         if current_boxes:
             # Log detection (intelligently handles debouncing)
+            # Determine which camera triggered the detection (approach prioritized)
+            detected_camera = APPROACH_CAMERA_NAME if approach_detected else BLINDSPOT_CAMERA_NAME
+            set_detection_camera(detected_camera)
+            
             event_id = log_detection_event()
             current_event_id = event_id
             relay_activated = update_relay_inputs(approach_detected, blindspot_detected)

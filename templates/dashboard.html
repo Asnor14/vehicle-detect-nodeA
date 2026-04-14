@@ -133,6 +133,20 @@
             cursor: pointer;
         }
 
+        select {
+            appearance: none;
+            border: 1.5px solid var(--border);
+            background: #fff;
+            color: var(--text);
+            padding: 14px 12px;
+            min-height: 52px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            cursor: pointer;
+        }
+
         a.button-link {
             display: inline-flex;
             align-items: center;
@@ -158,6 +172,10 @@
             background: var(--surface);
         }
 
+        select.secondary {
+            background: var(--surface);
+        }
+
         button:disabled {
             opacity: 0.45;
             cursor: not-allowed;
@@ -165,7 +183,7 @@
 
         .toolbar {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 10px;
             margin-top: 12px;
         }
@@ -355,7 +373,7 @@
             }
 
             .toolbar {
-                grid-template-columns: repeat(4, max-content);
+                grid-template-columns: max-content max-content max-content;
                 justify-content: end;
             }
 
@@ -436,8 +454,11 @@
                     <button class="secondary" id="btnClear">Clear Events</button>
                 </div>
                 <div class="toolbar">
-                    <a class="button-link" href="/detection-time">Detection time</a>
-                    <a class="button-link" href="/response-time">Response time</a>
+                    <select class="secondary" id="cameraFilter">
+                        <option value="">All Cameras</option>
+                        <option value="Approach">Approach</option>
+                        <option value="Blindspot">Blindspot</option>
+                    </select>
                     <button class="secondary" id="btnCopy">Copy Table</button>
                     <button class="secondary" id="btnPdf">Print / Save PDF</button>
                 </div>
@@ -468,13 +489,12 @@
                     <table id="eventsTable">
                         <thead>
                             <tr>
-                                <th>Event ID</th>
+                                <th>Camera</th>
                                 <th>Detection Time</th>
-                                <th>Relay Signal Time</th>
-                                <th>Relay Off Time</th>
-                                <th>Duration</th>
-                                <th>Vehicles</th>
-                                <th>Status</th>
+                                <th>Response Time</th>
+                                <th>No. Vehicle</th>
+                                <th>Relay Off</th>
+                                <th>Signal Time (ms)</th>
                             </tr>
                         </thead>
                         <tbody id="eventsTableBody"></tbody>
@@ -586,7 +606,9 @@
         }
 
         function renderEventCards() {
-            if (!eventsData.length) {
+            const filteredEvents = getFilteredEvents();
+            
+            if (!filteredEvents.length) {
                 eventCardsEl.innerHTML = `
                     <div class="empty-state">
                         <p>No completed events yet.</p>
@@ -595,65 +617,77 @@
                 return;
             }
 
-            eventCardsEl.innerHTML = eventsData.map(event => `
+            eventCardsEl.innerHTML = filteredEvents.map(event => `
                 <article class="event-card">
                     <div class="event-card-header">
-                        <div class="event-id">Event ${escapeHtml(event.event_id)}</div>
+                        <div class="event-id">Event ${escapeHtml(event.event_id)} - ${escapeHtml(event.camera_name ?? 'Unknown')}</div>
                         <div class="status-pill">${escapeHtml(event.status)}</div>
                     </div>
                     <div class="event-grid">
+                        <div class="kv"><span class="kv-label">Camera</span><span class="kv-value">${escapeHtml(event.camera_name ?? 'Unknown')}</span></div>
                         <div class="kv"><span class="kv-label">Detection Time</span><span class="kv-value">${escapeHtml(formatDateTime(event.detection_time))}</span></div>
-                        <div class="kv"><span class="kv-label">Relay Signal</span><span class="kv-value">${escapeHtml(formatDateTime(event.relay_signal_time))}</span></div>
+                        <div class="kv"><span class="kv-label">Response Time</span><span class="kv-value">${escapeHtml(formatDateTime(event.relay_signal_time))}</span></div>
                         <div class="kv"><span class="kv-label">Relay Off</span><span class="kv-value">${escapeHtml(formatDateTime(event.relay_off_time))}</span></div>
-                        <div class="kv"><span class="kv-label">Duration</span><span class="kv-value">${escapeHtml(event.duration_seconds ?? '--')}</span></div>
                         <div class="kv"><span class="kv-label">Vehicles</span><span class="kv-value">${escapeHtml(event.vehicle_count ?? 0)}</span></div>
+                        <div class="kv"><span class="kv-label">Signal Time</span><span class="kv-value">${escapeHtml(event.signal_time_ms ?? '--')}${event.signal_time_ms ? ' ms' : ''}</span></div>
                     </div>
                 </article>
             `).join('');
         }
 
         function renderTable() {
-            if (!eventsData.length) {
+            const filteredEvents = getFilteredEvents();
+            
+            if (!filteredEvents.length) {
                 eventsTableBodyEl.innerHTML = `
                     <tr>
-                        <td colspan="7">No completed events yet.</td>
+                        <td colspan="6">No completed events yet.</td>
                     </tr>
                 `;
                 return;
             }
 
-            eventsTableBodyEl.innerHTML = eventsData.map(event => `
+            eventsTableBodyEl.innerHTML = filteredEvents.map(event => `
                 <tr>
-                    <td>${escapeHtml(event.event_id)}</td>
+                    <td>${escapeHtml(event.camera_name ?? 'Unknown')}</td>
                     <td class="mono">${escapeHtml(formatDateTime(event.detection_time))}</td>
                     <td class="mono">${escapeHtml(formatDateTime(event.relay_signal_time))}</td>
-                    <td class="mono">${escapeHtml(formatDateTime(event.relay_off_time))}</td>
-                    <td>${escapeHtml(event.duration_seconds ?? '--')}</td>
                     <td>${escapeHtml(event.vehicle_count ?? 0)}</td>
-                    <td>${escapeHtml(event.status)}</td>
+                    <td class="mono">${escapeHtml(formatDateTime(event.relay_off_time))}</td>
+                    <td>${escapeHtml(event.signal_time_ms ?? '--')}${event.signal_time_ms ? ' ms' : ''}</td>
                 </tr>
             `).join('');
         }
 
+        function getFilteredEvents() {
+            const cameraFilterEl = document.getElementById('cameraFilter');
+            const selectedCamera = cameraFilterEl?.value || '';
+            
+            if (!selectedCamera) {
+                return eventsData;
+            }
+            
+            return eventsData.filter(event => event.camera_name === selectedCamera);
+        }
+
         function buildTsv() {
+            const filteredEvents = getFilteredEvents();
             const headers = [
-                'Event ID',
+                'Camera',
                 'Detection Time',
-                'Relay Signal Time',
-                'Relay Off Time',
-                'Duration',
-                'Vehicles',
-                'Status'
+                'Response Time',
+                'No. Vehicle',
+                'Relay Off',
+                'Signal Time (ms)'
             ];
 
-            const rows = eventsData.map(event => [
-                event.event_id ?? '',
+            const rows = filteredEvents.map(event => [
+                event.camera_name ?? 'Unknown',
                 formatDateTime(event.detection_time),
                 formatDateTime(event.relay_signal_time),
-                formatDateTime(event.relay_off_time),
-                event.duration_seconds ?? '',
                 event.vehicle_count ?? 0,
-                event.status ?? ''
+                formatDateTime(event.relay_off_time),
+                event.signal_time_ms ?? ''
             ]);
 
             return [headers, ...rows]
@@ -751,6 +785,14 @@
 
         btnCopy.addEventListener('click', copyTable);
         btnPdf.addEventListener('click', () => window.print());
+
+        const cameraFilterEl = document.getElementById('cameraFilter');
+        if (cameraFilterEl) {
+            cameraFilterEl.addEventListener('change', () => {
+                renderTable();
+                renderEventCards();
+            });
+        }
 
         loadDashboard();
         setInterval(loadDashboard, 2000);

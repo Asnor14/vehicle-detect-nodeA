@@ -34,6 +34,7 @@ class DetectionEvent:
         self.relay_off_time = None
         self.vehicle_count = 0
         self.status = "pending"  # pending, active, completed
+        self.camera_name = None  # Camera that triggered detection
         
     def to_dict(self):
         """Convert to dictionary for JSON serialization."""
@@ -44,7 +45,9 @@ class DetectionEvent:
             'relay_off_time': self.relay_off_time.isoformat() if self.relay_off_time else None,
             'vehicle_count': self.vehicle_count,
             'status': self.status,
-            'duration_seconds': self._calculate_duration()
+            'duration_seconds': self._calculate_duration(),
+            'camera_name': self.camera_name,
+            'signal_time_ms': self._calculate_signal_time_ms()
         }
     
     def _calculate_duration(self):
@@ -52,6 +55,13 @@ class DetectionEvent:
         if self.relay_signal_time and self.relay_off_time:
             delta = self.relay_off_time - self.relay_signal_time
             return round(delta.total_seconds(), 2)
+        return None
+    
+    def _calculate_signal_time_ms(self):
+        """Calculate time from detection to relay signal in milliseconds."""
+        if self.detection_time and self.relay_signal_time:
+            delta = self.relay_signal_time - self.detection_time
+            return round(delta.total_seconds() * 1000, 1)
         return None
 
 
@@ -66,6 +76,11 @@ class EventLogger:
         self.lock = threading.Lock()
         self.last_detection_time = None
         self.session_start_time = None
+        self.detection_camera_context = None  # Camera that triggered detection
+    
+    def set_detection_camera(self, camera_name):
+        """Set the camera that triggered the current detection."""
+        self.detection_camera_context = camera_name
     
     def on_vehicle_detected(self):
         """Call when a vehicle is detected. Returns event_id."""
@@ -82,6 +97,7 @@ class EventLogger:
                 self.current_event.status = "pending"
                 self.session_start_time = now
                 self.current_event.vehicle_count = 1
+                self.current_event.camera_name = self.detection_camera_context
                 self.last_detection_time = now
                 return self.current_event.event_id
 
@@ -557,6 +573,11 @@ def reset_response_trial_recorder():
 # ============================================================================
 # Helper Functions (called from main.py)
 # ============================================================================
+
+def set_detection_camera(camera_name):
+    """Set the camera that triggered the current detection (call before log_detection_event)."""
+    event_logger.set_detection_camera(camera_name)
+
 
 def log_detection_event():
     """Call from main.py inference_worker when vehicle detected.
